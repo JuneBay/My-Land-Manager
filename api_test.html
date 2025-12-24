@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>VWorld PNU 공시지가/면적/필드 전체 조회 (JSONP)</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --panel:#0f1b33;
+      --card:#111f3d;
+      --card2:#0f1b33;
+      --text:#e8eefc;
+      --muted:#a9b7d6;
+      --accent:#2b7cff;
+      --ok:#35c27b;
+      --bad:#ff5b6c;
+      --warn:#ffb020;
+      --shadow:0 12px 34px rgba(0,0,0,.45);
+      --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:"Malgun Gothic",system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",sans-serif;
+      background: radial-gradient(1200px 700px at 20% -10%, #1a2c55 0, transparent 55%),
+                  radial-gradient(900px 600px at 100% 10%, #13254a 0, transparent 60%),
+                  var(--bg);
+      color:var(--text);
+    }
+    .wrap{max-width:1200px;margin:26px auto;padding:0 18px 40px}
+    h1{font-size:22px;margin:0 0 14px}
+    .sub{color:var(--muted);margin:0 0 18px;line-height:1.5}
+
+    .grid{
+      display:grid;
+      grid-template-columns:1.25fr .75fr;
+      gap:14px;
+      align-items:start;
+    }
+    @media (max-width:980px){ .grid{grid-template-columns:1fr} }
+
+    .panel{
+      background:var(--panel);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:14px;
+    }
+    .panel h2{font-size:15px;margin:0 0 10px}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .field{display:flex;flex-direction:column;gap:6px;min-width:240px;flex:1}
+    label{font-size:12px;color:var(--muted)}
+    input, textarea{
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.12);
+      color:var(--text);
+      border-radius:10px;
+      padding:10px 11px;
+      outline:none;
+    }
+    textarea{
+      min-height:120px;
+      resize:vertical;
+      font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+    }
+    input::placeholder, textarea::placeholder{color:rgba(233,238,252,.45)}
+    .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;align-items:center}
+    button{
+      border:0;
+      background:var(--accent);
+      color:#fff;
+      padding:10px 14px;
+      border-radius:10px;
+      font-weight:700;
+      cursor:pointer;
+    }
+    button.secondary{background:rgba(255,255,255,.08);color:var(--text);border:1px solid rgba(255,255,255,.12)}
+    button.danger{background:rgba(255,91,108,.18);color:#ffd5da;border:1px solid rgba(255,91,108,.45)}
+    button:disabled{opacity:.55;cursor:not-allowed}
+
+    .status{margin-top:10px;color:var(--muted);font-size:13px;line-height:1.5}
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06)}
+    .pill.ok{border-color:rgba(53,194,123,.55);background:rgba(53,194,123,.12);color:#c9ffe6}
+    .pill.bad{border-color:rgba(255,91,108,.65);background:rgba(255,91,108,.14);color:#ffd5da}
+    .pill.warn{border-color:rgba(255,176,32,.55);background:rgba(255,176,32,.12);color:#ffe6ba}
+
+    table{width:100%;border-collapse:collapse;margin-top:12px;overflow:hidden;border-radius:12px}
+    th, td{border-bottom:1px solid rgba(255,255,255,.10);padding:10px 10px;text-align:center;font-size:13px}
+    th{background:rgba(255,255,255,.06);color:var(--muted);font-weight:700}
+    td{background:rgba(255,255,255,.03)}
+    td.left{text-align:left}
+    .linkbtn{
+      padding:6px 10px;
+      font-size:12px;
+      border-radius:999px;
+      background:rgba(43,124,255,.22);
+      border:1px solid rgba(43,124,255,.42);
+      color:#d9e8ff;
+    }
+
+    .backdrop{
+      position:fixed;inset:0;
+      background:rgba(0,0,0,.35);
+      display:none;
+      align-items:flex-start;
+      justify-content:center;
+      padding:22px 14px;
+      z-index:999;
+    }
+    .modal{
+      width:min(1100px, 100%);
+      background:var(--card2);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:18px;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+    .modalHeader{
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+      padding:14px 16px;
+      background:#0b1429;
+      border-bottom:1px solid rgba(255,255,255,.10);
+    }
+    .modalTitle{display:flex;flex-direction:column;gap:4px}
+    .modalTitle .pnu{font-weight:900;font-size:14px}
+    .modalTitle .addr{color:var(--muted);font-size:12px}
+    .modalBody{padding:14px 16px;max-height:78vh;overflow:auto}
+    .right{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+    .cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media (max-width:980px){ .cols{grid-template-columns:1fr} }
+
+    .card{
+      background:var(--card);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:14px;
+      padding:12px;
+    }
+    .card h3{margin:0 0 8px;font-size:13px}
+    .meta{color:var(--muted);font-size:12px;line-height:1.45;margin:0 0 10px}
+    .kv{width:100%;border-collapse:collapse;overflow:hidden;border-radius:12px}
+    .kv th,.kv td{padding:8px 9px;font-size:12px;text-align:left}
+    .kv th{width:42%;color:var(--muted);background:rgba(255,255,255,.06)}
+    .kv td{background:rgba(255,255,255,.03);word-break:break-all}
+
+    pre{
+      margin:10px 0 0;
+      background:#0b1429;
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:12px;
+      padding:10px;
+      font-size:12px;
+      overflow:auto;
+      max-height:260px;
+    }
+    .tiny{font-size:11px;color:rgba(233,238,252,.70);line-height:1.45}
+    .divider{height:1px;background:rgba(255,255,255,.12);margin:12px 0}
+    .fold{margin-top:10px;border-top:1px dashed rgba(255,255,255,.18);padding-top:10px}
+    details summary{cursor:pointer;color:rgba(233,238,252,.85);font-size:12px}
+    .muted{color:var(--muted)}
+  </style>
+</head>
+
+<body>
+<div class="wrap">
+  <h1>VWorld PNU 공시지가/면적/필드 전체 조회 (JSONP)</h1>
+  <p class="sub">
+    목적: PNU 19자리 기준으로 <b>① 개별공시지가(getIndvdLandPriceAttr)</b>, <b>② 토지특성(getLandCharacteristics)</b>을 조회하고,
+    응답에 포함된 <b>모든 필드</b>를 팝업에서 전부 확인합니다. (브라우저 CORS 이슈는 JSONP로 우회)
+  </p>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>입력</h2>
+
+      <div class="row">
+        <div class="field">
+          <label>VWorld Key</label>
+          <input id="vwKey" placeholder="브이월드 인증키를 입력하세요" />
+          <div class="tiny">키는 localStorage에만 저장됩니다(코드 하드코딩 없음).</div>
+        </div>
+        <div class="field">
+          <label>DOMAIN (브이월드 키 설정에 등록된 값)</label>
+          <input id="vwDomain" placeholder="예: 127.0.0.1:5500" value="127.0.0.1:5500" />
+          <div class="tiny">프로토콜 없이 host:port 권장</div>
+        </div>
+        <div class="field" style="max-width:240px">
+          <label>조회 시작 연도</label>
+          <input id="startYear" type="number" value="2025" />
+        </div>
+        <div class="field" style="max-width:240px">
+          <label>최소 연도</label>
+          <input id="minYear" type="number" value="2018" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <div class="field" style="min-width:100%">
+          <label>PNU 입력 (여러 줄 가능 / CSV 붙여넣기 가능)</label>
+          <textarea id="pnuInput" placeholder="예) 4479031029100120003, (메모: 주소나 비고)
+예) 4479031029100050001
+예) PNU가 섞인 CSV여도 19자리 숫자만 추출합니다."></textarea>
+          <div class="tiny muted">
+            각 줄에서 PNU 뒤에 “,메모”를 적으면 팝업 상단에 같이 표시됩니다.
+            주소는 <b>API 응답의 ldCodeNm + mnnmSlno</b>를 우선 사용합니다.
+          </div>
+        </div>
+      </div>
+
+      <div class="btns">
+        <button id="btnStart" onclick="start()">조회 시작</button>
+        <button class="danger" id="btnStop" onclick="stop()" disabled>중지</button>
+        <span class="pill warn" id="pillState">대기</span>
+      </div>
+
+      <div class="status" id="status">준비됨</div>
+    </div>
+
+    <div class="panel">
+      <h2>추가 연결(붙이기) 안내</h2>
+      <div class="tiny">
+        - 토지이음(토지이용계획확인서)은 PNU로 “페이지 링크 연결”은 즉시 가능합니다(버튼 제공).<br/>
+        - 환경영향/환경성(NEINS) 등은 보통 별도 시스템/키 정책이 있어, 같은 화면에 “데이터까지 자동 로드”는 별도 키/정책 확인이 필요합니다.<br/>
+        - “산야로”는 어떤 시스템을 의미하는지에 따라 API/링크 방식이 달라집니다(정확한 대상 URL이 있으면 그에 맞춰 붙일 수 있습니다).
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:14px">
+    <h2>결과</h2>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:56px">순번</th>
+          <th style="width:210px">PNU</th>
+          <th style="width:90px">상태</th>
+          <th style="width:90px">공시지가 연도</th>
+          <th style="width:130px">공시지가 (원/㎡)</th>
+          <th style="width:90px">면적 연도</th>
+          <th style="width:110px">면적 (㎡)</th>
+          <th>메시지(지번+지목)</th>
+          <th style="width:90px">상세</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="backdrop" id="backdrop" onclick="onBackdrop(event)">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalPnu">
+    <div class="modalHeader">
+      <div class="modalTitle">
+        <div class="pnu" id="modalPnu">PNU: -</div>
+        <div class="addr" id="modalAddr">주소/메모: -</div>
+      </div>
+      <div class="right">
+        <button class="secondary" onclick="openEum()">토지이음 열기</button>
+        <button class="secondary" onclick="copyAllJson()">원본 JSON 전체 복사</button>
+        <button class="secondary" onclick="closeModal()">닫기</button>
+      </div>
+    </div>
+
+    <div class="modalBody">
+      <div class="card">
+        <h3>PNU 해석</h3>
+        <p class="meta" id="pnuExplain"></p>
+        <table class="kv" id="pnuTable"></table>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="cols">
+        <div class="card">
+          <h3>① 개별공시지가 (getIndvdLandPriceAttr) — 필드 전체</h3>
+          <p class="meta" id="metaPrice"></p>
+          <div class="btns" style="margin:0 0 8px">
+            <button class="secondary" onclick="copyJson('price')">원본 JSON 복사</button>
+          </div>
+          <table class="kv" id="tblPrice"></table>
+          <details class="fold">
+            <summary>원본 JSON 보기</summary>
+            <pre id="rawPrice"></pre>
+          </details>
+        </div>
+
+        <div class="card">
+          <h3>② 토지특성 (getLandCharacteristics) — 필드 전체</h3>
+          <p class="meta" id="metaChar"></p>
+          <div class="btns" style="margin:0 0 8px">
+            <button class="secondary" onclick="copyJson('char')">원본 JSON 복사</button>
+          </div>
+          <table class="kv" id="tblChar"></table>
+          <details class="fold">
+            <summary>원본 JSON 보기</summary>
+            <pre id="rawChar"></pre>
+          </details>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="card">
+        <h3>코드/설명(가능한 범위)</h3>
+        <p class="meta">
+          응답에 <b>...Nm</b> 형태(예: indcgrCodeNm, regstrSeCodeNm 등)가 있으면 그 값을 “코드 의미”로 우선 표시합니다.
+        </p>
+        <table class="kv" id="tblCodes"></table>
+
+        <details class="fold">
+          <summary>커스텀 코드표(직접 확장)</summary>
+          <pre id="codeHint"></pre>
+        </details>
+
+        <details class="fold">
+          <summary class="muted">하단(작게): 공시가(추정) = 공시지가(원/㎡) × 면적(㎡)</summary>
+          <div class="tiny" id="totalHint"></div>
+        </details>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ENDPOINT_PRICE = "https://api.vworld.kr/ned/data/getIndvdLandPriceAttr";
+const ENDPOINT_CHAR  = "https://api.vworld.kr/ned/data/getLandCharacteristics";
+
+let isCancelled = false;
+let currentModalPnu = null;
+const pnuResults = Object.create(null);
+
+function loadLocal(){
+  $("vwKey").value = localStorage.getItem("vw_key") || "";
+  $("vwDomain").value = localStorage.getItem("vw_domain") || "127.0.0.1:5500";
+  $("startYear").value = localStorage.getItem("vw_startYear") || "2025";
+  $("minYear").value = localStorage.getItem("vw_minYear") || "2018";
+}
+function saveLocal(){
+  localStorage.setItem("vw_key", $("vwKey").value.trim());
+  localStorage.setItem("vw_domain", $("vwDomain").value.trim());
+  localStorage.setItem("vw_startYear", $("startYear").value);
+  localStorage.setItem("vw_minYear", $("minYear").value);
+}
+loadLocal();
+
+function $(id){ return document.getElementById(id); }
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function setPill(type,text){
+  const pill=$("pillState");
+  pill.className="pill "+(type||"");
+  pill.textContent=text;
+}
+function escapeHtml(s){
+  return String(s)
+    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;").replaceAll("'","&#039;");
+}
+function safeNum(v){
+  if (v===null || v===undefined) return null;
+  const n=Number(String(v).replace(/,/g,"").trim());
+  return Number.isFinite(n) ? n : null;
+}
+function fmt(n){
+  const nn=safeNum(n);
+  return nn===null ? "-" : nn.toLocaleString();
+}
+
+/* JSONP */
+function jsonp(url, timeoutMs=15000){
+  return new Promise((resolve,reject)=>{
+    const cbName="cb_"+Math.random().toString(36).slice(2);
+    const script=document.createElement("script");
+    let done=false;
+
+    window[cbName]=(data)=>{ done=true; cleanup(); resolve(data); };
+
+    const timer=setTimeout(()=>{
+      if (done) return;
+      done=true; cleanup();
+      reject(new Error("JSONP timeout"));
+    }, timeoutMs);
+
+    function cleanup(){
+      clearTimeout(timer);
+      try{ delete window[cbName]; }catch(e){ window[cbName]=undefined; }
+      if (script && script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    const sep=url.includes("?") ? "&" : "?";
+    script.src=url + sep + "callback=" + encodeURIComponent(cbName);
+    script.onerror=()=>{ if(done) return; done=true; cleanup(); reject(new Error("JSONP script load error")); };
+    document.body.appendChild(script);
+  });
+}
+
+/* record 추출(면적 안나오는 케이스 해결) */
+function pickFirstRecord(obj){
+  if (!obj || typeof obj!=="object") return null;
+
+  if (Array.isArray(obj.field) && obj.field[0] && typeof obj.field[0]==="object") return obj.field[0];
+  if (obj.field && typeof obj.field==="object" && !Array.isArray(obj.field)) return obj.field;
+
+  if (obj.indvdLandPrices && Array.isArray(obj.indvdLandPrices.field) && obj.indvdLandPrices.field[0]) return obj.indvdLandPrices.field[0];
+  if (obj.landCharacteristics && Array.isArray(obj.landCharacteristics.field) && obj.landCharacteristics.field[0]) return obj.landCharacteristics.field[0];
+
+  for (const k of Object.keys(obj)){
+    const v=obj[k];
+    if (!v || typeof v!=="object") continue;
+    if (Array.isArray(v.field) && v.field[0] && typeof v.field[0]==="object") return v.field[0];
+    if (v.field && typeof v.field==="object" && !Array.isArray(v.field)) return v.field;
+  }
+  return null;
+}
+
+function sortKeys(obj){ return Object.keys(obj).sort((a,b)=>a.localeCompare(b)); }
+function renderKVTable(tableEl, fields, knownLabels=null){
+  tableEl.innerHTML="";
+  if (!fields || typeof fields!=="object"){ tableEl.innerHTML=`<tr><th>필드</th><td>-</td></tr>`; return; }
+  const keys=sortKeys(fields);
+  if (keys.length===0){ tableEl.innerHTML=`<tr><th>필드</th><td>(데이터 없음)</td></tr>`; return; }
+
+  for (const k of keys){
+    const label = knownLabels?.[k] ? `${k} (${knownLabels[k]})` : k;
+    let v=fields[k];
+    if (typeof v==="object" && v!==null) v=JSON.stringify(v);
+    tableEl.insertAdjacentHTML("beforeend", `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(v ?? "")}</td></tr>`);
+  }
+}
+
+/* PNU parse */
+function parsePnuLines(text){
+  const lines=(text||"").split(/\r?\n/);
+  const out=[];
+  for (const line of lines){
+    const m=line.match(/(\d{19})/);
+    if(!m) continue;
+    const pnu=m[1];
+    let memo="";
+    const idx=line.indexOf(pnu);
+    if(idx>=0){
+      const rest=line.slice(idx+pnu.length).trim();
+      memo = rest.startsWith(",") ? rest.slice(1).trim() : rest.trim();
+    }
+    out.push({pnu,memo});
+  }
+  const seen=new Set(); const uniq=[];
+  for(const it of out){ if(seen.has(it.pnu)) continue; seen.add(it.pnu); uniq.push(it); }
+  return uniq;
+}
+
+function decodePnu(pnu){
+  const ldCode=pnu.slice(0,10);
+  const san=pnu.slice(10,11);
+  const bon=pnu.slice(11,15);
+  const bu=pnu.slice(15,19);
+  const sanMeaning = (san==="1") ? "1 (대지/일반)" : (san==="2") ? "2 (산/임야)" : `${san} (미확인)`;
+  return {ldCode,san,sanMeaning,bon,bu};
+}
+
+/* 주소(팝업 상단용) */
+function buildAddress(fieldsPrice, fieldsChar, memo, pnu){
+  const ldCodeNm = fieldsChar?.ldCodeNm || fieldsPrice?.ldCodeNm || "";
+  const mnnmSlno = fieldsChar?.mnnmSlno || fieldsPrice?.mnnmSlno || "";
+  const addrFromFields = (ldCodeNm || mnnmSlno) ? `${ldCodeNm} ${mnnmSlno}`.trim() : "";
+
+  if (addrFromFields && memo) return `${addrFromFields} / 메모: ${memo}`;
+  if (addrFromFields) return addrFromFields;
+  if (memo) return memo;
+  const d=decodePnu(pnu);
+  return `법정동코드 ${d.ldCode}, 지번 ${Number(d.bon)}-${Number(d.bu)} (${d.sanMeaning})`;
+}
+
+/* ✅ 메시지(테이블 칸용): 지번 + 지목 */
+function buildMsgJibunJimok(charFields, priceFields, memo, pnu){
+  const ldCodeNm = charFields?.ldCodeNm || priceFields?.ldCodeNm || "";
+  const mnnmSlno = charFields?.mnnmSlno || priceFields?.mnnmSlno || "";
+  const indcgrNm = charFields?.indcgrCodeNm || charFields?.indcgrNm || "";
+
+  // "지번"은 보통 mnnmSlno가 "23-2" 같은 형태라서 바로 사용
+  const jibun = (ldCodeNm || mnnmSlno) ? `${ldCodeNm} ${mnnmSlno}`.trim() : "";
+  const jimok = indcgrNm ? `지목: ${indcgrNm}` : "";
+
+  if (jibun && jimok) return `${jibun} / ${jimok}`;
+  if (jibun) return jibun;
+  if (jimok) return jimok;
+  if (memo) return memo;
+
+  const d=decodePnu(pnu);
+  return `지번 ${Number(d.bon)}-${Number(d.bu)} (${d.sanMeaning})`;
+}
+
+/* URL builder */
+function buildUrl(base, params){
+  const u=new URL(base);
+  for(const [k,v] of Object.entries(params)){
+    if(v===undefined || v===null || v==="") continue;
+    u.searchParams.set(k,v);
+  }
+  return u.toString();
+}
+
+async function fetchWithYearFallback(base, commonParams, startYear, minYear){
+  for(let y=startYear; y>=minYear; y--){
+    const url=buildUrl(base, {...commonParams, stdrYear:String(y), format:"json"});
+    const raw=await jsonp(url);
+    const record=pickFirstRecord(raw);
+    if(record && typeof record==="object" && Object.keys(record).length>0){
+      return {year:y, raw, record, url};
+    }
+    await sleep(120);
+  }
+  return {year:null, raw:null, record:null, url:null};
+}
+
+function setRowStatus(row, type, msg){
+  const cell=row.querySelector("[data-col='status']");
+  if(type==="ok") cell.innerHTML=`<span class="pill ok">성공</span>`;
+  else if(type==="bad") cell.innerHTML=`<span class="pill bad">실패</span>`;
+  else cell.innerHTML=`<span class="pill warn">진행</span>`;
+  row.querySelector("[data-col='msg']").textContent = msg || "";
+}
+
+async function start(){
+  const key=$("vwKey").value.trim();
+  const domain=$("vwDomain").value.trim();
+  const startYear=Number($("startYear").value);
+  const minYear=Number($("minYear").value);
+
+  if(!key){ alert("VWorld Key를 입력해 주세요."); return; }
+  if(!Number.isFinite(startYear) || !Number.isFinite(minYear) || minYear>startYear){
+    alert("조회 연도 범위를 확인해 주세요."); return;
+  }
+
+  const items=parsePnuLines($("pnuInput").value);
+  if(items.length===0){ alert("PNU(19자리)를 찾지 못했습니다."); return; }
+
+  saveLocal();
+
+  $("btnStart").disabled=true;
+  $("btnStop").disabled=false;
+  isCancelled=false;
+  setPill("warn","진행 중");
+  $("status").textContent=`총 ${items.length}건 조회 시작...`;
+
+  $("tbody").innerHTML="";
+  for(let i=0;i<items.length;i++){
+    const it=items[i];
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
+      <td>${i+1}</td>
+      <td>${it.pnu}</td>
+      <td data-col="status"><span class="pill warn">대기</span></td>
+      <td data-col="yPrice">-</td>
+      <td data-col="price">-</td>
+      <td data-col="yArea">-</td>
+      <td data-col="area">-</td>
+      <td class="left" data-col="msg"></td>
+      <td><button class="linkbtn" onclick="openModal('${it.pnu}')">상세</button></td>
+    `;
+    $("tbody").appendChild(tr);
+  }
+
+  for(let i=0;i<items.length;i++){
+    if(isCancelled) break;
+    const it=items[i];
+    const row=$("tbody").children[i];
+    setRowStatus(row,"run","조회 중...");
+
+    const common={pnu:it.pnu, key};
+    if(domain) common.domain=domain;
+
+    try{
+      const resPrice=await fetchWithYearFallback(ENDPOINT_PRICE, common, startYear, minYear);
+      const resChar =await fetchWithYearFallback(ENDPOINT_CHAR,  common, startYear, minYear);
+
+      const priceFields=resPrice.record || {};
+      const charFields =resChar.record  || {};
+
+      const pricePerM2=safeNum(priceFields.pblntfPclnd ?? priceFields.pblntfPclndAmt ?? priceFields.pann_giga ?? priceFields.jiga);
+      const areaM2=safeNum(charFields.lndpclAr ?? charFields.rnes_area ?? charFields.parea ?? charFields.area);
+
+      const addr=buildAddress(priceFields,charFields,it.memo,it.pnu);
+      const msgAddr=buildMsgJibunJimok(charFields,priceFields,it.memo,it.pnu);  // ✅ 메시지로 사용
+
+      pnuResults[it.pnu]={
+        memo:it.memo, addr,
+        pickedYearPrice:resPrice.year,
+        pickedYearChar:resChar.year,
+        priceFields, charFields,
+        rawPrice:resPrice.raw, rawChar:resChar.raw,
+        urlPrice:resPrice.url, urlChar:resChar.url,
+        pricePerM2, areaM2
+      };
+
+      row.querySelector("[data-col='yPrice']").textContent = resPrice.year ?? "-";
+      row.querySelector("[data-col='price']").textContent  = (pricePerM2===null) ? "-" : pricePerM2.toLocaleString();
+      row.querySelector("[data-col='yArea']").textContent  = resChar.year ?? "-";
+      row.querySelector("[data-col='area']").textContent   = (areaM2===null) ? "-" : areaM2.toLocaleString();
+
+      // ✅ 메시지 칸에 "지번 + 지목" 표시
+      row.querySelector("[data-col='msg']").textContent = msgAddr;
+
+      const ok=!!(resPrice.year || resChar.year);
+      // 메시지 덮어쓰지 않도록 setRowStatus는 빈 메시지로
+      setRowStatus(row, ok ? "ok" : "bad", "");
+      if (!ok) row.querySelector("[data-col='msg']").textContent = "데이터가 비어 있습니다.";
+
+      await sleep(180);
+    }catch(err){
+      console.error(err);
+      setRowStatus(row,"bad","");
+      row.querySelector("[data-col='msg']").textContent = err.message || "통신 오류";
+      await sleep(250);
+    }
+  }
+
+  if(isCancelled){
+    setPill("bad","중지됨");
+    $("status").textContent="사용자 요청으로 중지되었습니다.";
+  }else{
+    setPill("ok","완료");
+    $("status").textContent="모든 조회 완료";
+  }
+  $("btnStart").disabled=false;
+  $("btnStop").disabled=true;
+}
+
+function stop(){ isCancelled=true; }
+
+/* 팝업 렌더링 */
+const knownLabelsPrice = {
+  lastUpdtDt:"데이터기준일자", ldCode:"법정동코드", ldCodeNm:"법정동명", mnnmSlno:"지번",
+  pblntfDe:"공시일자", pblntfPclnd:"개별공시지가(원/㎡)", pnu:"PNU",
+  regstrSeCode:"산구분/대장 구분 코드", regstrSeCodeNm:"산구분/대장 구분(명)",
+  stdLandAt:"표준지 여부", stdrMt:"기준월", stdrYear:"기준연도(YYYY)"
+};
+const knownLabelsChar = {
+  ladSn:"토지일련번호", ladUseSittn:"토지이용상황코드", ladUseSittnNm:"토지이용상황",
+  lastUpdtDt:"데이터기준일자", ldCode:"법정동코드", ldCodeNm:"법정동명",
+  indcgrCode:"지목코드", indcgrCodeNm:"지목명",
+  lndpclAr:"토지면적(㎡)", mnnmSlno:"지번",
+  pblntfPclnd:"개별공시지가(원/㎡)", pnu:"PNU",
+  prposArea1:"용도지역코드1", prposArea1Nm:"용도지역1", prposArea2:"용도지역코드2", prposArea2Nm:"용도지역2",
+  regstrSeCode:"산구분 코드", regstrSeCodeNm:"산구분(명)",
+  roadSideCode:"도로접면코드", roadSideCodeNm:"도로접면",
+  stdrMt:"기준월", stdrYear:"기준연도(YYYY)",
+  tpgrphFrmCode:"지형형상코드", tpgrphFrmCodeNm:"지형형상"
+};
+const CODEBOOK = {};
+
+function openModal(pnu){
+  currentModalPnu=pnu;
+  const data=pnuResults[pnu];
+  if(!data){ alert("해당 PNU는 아직 조회 결과가 없습니다."); return; }
+
+  $("modalPnu").textContent=`PNU: ${pnu}`;
+  $("modalAddr").textContent=`주소/메모: ${data.addr}`;
+
+  const d=decodePnu(pnu);
+  $("pnuExplain").textContent=`PNU는 “법정동코드(10)+산구분(1)+본번(4)+부번(4)” 입니다. 산구분은 보통 1(대지/일반), 2(산/임야)로 사용됩니다.`;
+  $("pnuTable").innerHTML=`
+    <tr><th>법정동코드(10)</th><td>${escapeHtml(d.ldCode)}</td></tr>
+    <tr><th>산구분(1)</th><td>${escapeHtml(d.sanMeaning)}</td></tr>
+    <tr><th>본번(4)</th><td>${escapeHtml(d.bon)}</td></tr>
+    <tr><th>부번(4)</th><td>${escapeHtml(d.bu)}</td></tr>
+  `;
+
+  $("metaPrice").textContent=`Endpoint: ${ENDPOINT_PRICE}\n조회 연도(결정): ${data.pickedYearPrice ?? "-"}\n(원/㎡: pblntfPclnd)`;
+  $("metaChar").textContent=`Endpoint: ${ENDPOINT_CHAR}\n조회 연도(결정): ${data.pickedYearChar ?? "-"}\n(면적: lndpclAr, 지목: indcgrCodeNm)`;
+
+  renderKVTable($("tblPrice"), data.priceFields, knownLabelsPrice);
+  renderKVTable($("tblChar"),  data.charFields,  knownLabelsChar);
+
+  $("rawPrice").textContent=JSON.stringify(data.rawPrice,null,2);
+  $("rawChar").textContent=JSON.stringify(data.rawChar,null,2);
+
+  renderCodesTable(data.priceFields,data.charFields);
+
+  const pp=data.pricePerM2, aa=data.areaM2;
+  const total=(pp!==null && aa!==null) ? (pp*aa) : null;
+  $("totalHint").innerHTML=`
+    <div>공시지가(원/㎡): <b>${fmt(pp)}</b></div>
+    <div>면적(㎡): <b>${fmt(aa)}</b></div>
+    <div style="margin-top:6px">공시가(추정) = 공시지가 × 면적 = <b>${total===null ? "-" : total.toLocaleString()}</b> 원</div>
+    <div class="tiny muted" style="margin-top:6px">단순 곱(원/㎡ × ㎡) 기반 추정치입니다.</div>
+  `;
+
+  $("codeHint").textContent=
+`// CODEBOOK 예시(원하시는 코드값을 여기 추가하면 팝업에서 자동 해석됩니다.)
+const CODEBOOK = {
+  regstrSeCode: {"1":"일반","2":"산"},
+  // ladUseSittn: {"720":"자연림", ...},
+};`;
+
+  $("backdrop").style.display="flex";
+}
+
+function renderCodesTable(priceFields,charFields){
+  const tbl=$("tblCodes");
+  tbl.innerHTML="";
+
+  const merged={...(priceFields||{}),...(charFields||{})};
+  const keys=sortKeys(merged);
+  const shown=new Set();
+
+  for(const k of keys){
+    if(!k.endsWith("Code")) continue;
+    const nmKey=k+"Nm";
+    if(nmKey in merged){
+      tbl.insertAdjacentHTML("beforeend",
+        `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(merged[k] ?? "")} → ${escapeHtml(merged[nmKey] ?? "")}</td></tr>`
+      );
+      shown.add(k); shown.add(nmKey);
+    }
+  }
+
+  for(const k of keys){
+    if(shown.has(k)) continue;
+    if(!(k in CODEBOOK)) continue;
+    const codeVal=String(merged[k] ?? "");
+    const meaning=CODEBOOK[k]?.[codeVal] ?? "(코드표에 없음)";
+    tbl.insertAdjacentHTML("beforeend",
+      `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(codeVal)} → ${escapeHtml(meaning)}</td></tr>`
+    );
+    shown.add(k);
+  }
+
+  const extraKeys=["regstrSeCode","regstrSeCodeNm","stdLandAt","stdrMt","stdrYear","ladUseSittn","ladUseSittnNm","indcgrCodeNm"];
+  for(const k of extraKeys){
+    if(shown.has(k)) continue;
+    if(!(k in merged)) continue;
+    tbl.insertAdjacentHTML("beforeend",
+      `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(merged[k] ?? "")}</td></tr>`
+    );
+    shown.add(k);
+  }
+
+  if(!tbl.innerHTML.trim()){
+    tbl.innerHTML=`<tr><th>코드</th><td>표시할 항목이 없습니다.</td></tr>`;
+  }
+}
+
+function closeModal(){ $("backdrop").style.display="none"; currentModalPnu=null; }
+function onBackdrop(e){ if(e.target===$("backdrop")) closeModal(); }
+
+function copyText(text){
+  navigator.clipboard.writeText(text).catch(()=>alert("클립보드 복사 실패(권한/HTTPS 확인)"));
+}
+function copyJson(which){
+  if(!currentModalPnu) return;
+  const data=pnuResults[currentModalPnu];
+  const raw=(which==="price") ? data.rawPrice : data.rawChar;
+  copyText(JSON.stringify(raw,null,2));
+}
+function copyAllJson(){
+  if(!currentModalPnu) return;
+  const data=pnuResults[currentModalPnu];
+  copyText(JSON.stringify({pnu:currentModalPnu, price:data.rawPrice, characteristics:data.rawChar}, null, 2));
+}
+function openEum(){
+  if(!currentModalPnu) return;
+  const url="https://www.eum.go.kr/web/ar/lu/luLandDet.jsp?isNoScr=script&mode=search&selGbn=umd&pnu="+encodeURIComponent(currentModalPnu);
+  window.open(url,"_blank","noopener,noreferrer");
+}
+</script>
+</body>
+</html>

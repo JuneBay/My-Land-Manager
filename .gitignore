@@ -1,0 +1,24 @@
+# API Keys and Secrets
+Secrets/
+*.key
+*.secret
+
+# VWorld API Key
+vworldKey.txt
+
+# System files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE settings
+.vscode/
+.idea/
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Log files
+*.log
