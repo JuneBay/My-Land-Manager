@@ -379,7 +379,8 @@ function getFeatureStyle(feature) {
         const color = getOwnerColor(owner);
         return { color: color, weight: 3, opacity: 1, fillColor: color, fillOpacity: 0.55 };
     }
-    return bgSwitch.checked ? bgStyle : invisibleStyle;
+    // 📌 "지적도 배경 끄기" 토글: OFF(unchecked)=배경 보임, ON(checked)=배경 숨김
+    return bgSwitch.checked ? invisibleStyle : bgStyle;
 }
 
 // 5. 초기화 및 데이터 로드 (UNGOK_DATA 변수 사용 - CORS 우회)
@@ -404,8 +405,8 @@ function getFeatureStyle(feature) {
     // 📌 API 키 로드
     loadVWorldKey();
 
-    // 📌 가족땅만 모아보기 디폴트 ON 강제 적용
-    mainSwitch.checked = true;
+    // 📌 모든 토글은 HTML에서 설정된 기본값(OFF) 사용
+    // 지적도 데이터는 로드되어 있고, 토글로 표시 여부만 제어
 
     geoJsonLayer = L.geoJSON(data, {
         style: getFeatureStyle,
@@ -594,7 +595,16 @@ copyPnuListBtn.addEventListener('click', () => {
     });
 });
 
-mainSwitch.addEventListener('change', () => { geoJsonLayer.setStyle(getFeatureStyle); updateSideList(); });
+// 📌 가족 땅만 모아보기 토글: ON 시 전체 선택도 자동 활성화
+mainSwitch.addEventListener('change', () => {
+    if (mainSwitch.checked) {
+        // 가족 땅만 모아보기 ON → 전체 선택 및 모든 소유자 필터 자동 ON
+        checkAll.checked = true;
+        ownerCheckboxes.forEach(cb => cb.checked = true);
+    }
+    geoJsonLayer.setStyle(getFeatureStyle);
+    updateSideList();
+});
 bgSwitch.addEventListener('change', () => { geoJsonLayer.setStyle(getFeatureStyle); });
 checkAll.addEventListener('change', function () { ownerCheckboxes.forEach(cb => cb.checked = this.checked); geoJsonLayer.setStyle(getFeatureStyle); updateSideList(); });
 ownerCheckboxes.forEach(cb => cb.addEventListener('change', () => { geoJsonLayer.setStyle(getFeatureStyle); updateSideList(); }));
